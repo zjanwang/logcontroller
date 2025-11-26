@@ -1,0 +1,106 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: {{ .Release.Name }}
+  namespace:  {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    node-pool: ignore
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+        node-pool: ignore
+    spec:
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      serviceAccountName: {{ .Release.Name }}
+      serviceAccount: {{ .Release.Name }}
+      volumes:
+        - hostPath:
+            path: /var/run/docker.sock
+            type: ""
+          name: docker
+        - configMap:
+            defaultMode: 511
+            name: log-controller-tpl
+          name: template-config
+        - configMap:
+            defaultMode: 511
+            name: log-controller-config
+          name: global-config
+        - configMap:
+            defaultMode: 511
+            name: log-controller-config-newmsg
+          name: global-config-newmsg
+        - hostPath:
+            path: /
+            type: ""
+          name: root
+        - hostPath:
+            path: /var/lib/logpipe/mmap
+            type: DirectoryOrCreate
+          name: mmap
+        - hostPath:
+            path: /etc/localtime
+          name: localtime
+      containers:
+        - name: log-controller
+          image: {{ .Values.node.image.registry }}/{{ .Values.node.image.repository }}:{{ .Values.node.image.tag }}
+          imagePullPolicy: {{ .Values.node.image.pullPolicy }}
+          env:
+          - name: HOSTNAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: PODNAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: PODNAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: LOGCONTAINERNAME
+            value: k8s_container_name
+          - name: LOGPIPESCRIPT
+            value: /logpipe/
+          resources:
+            limits:
+              cpu: 4
+              memory: 8G
+            requests:
+              cpu: 1
+              memory: 1G
+          volumeMounts:
+            - mountPath: /var/run/docker.sock
+              mountPropagation: Bidirectional
+              name: docker
+            - mountPath: /global.config
+              subPath: global.config
+              name: global-config
+            - mountPath: /global-newmsg.config
+              subPath: global-newmsg.config
+              name: global-config-newmsg
+            - mountPath: /template.config
+              subPath: template.config
+              name: template-config
+            - mountPath: /host
+              readOnly: true
+              name: root
+            - mountPath: /logpipe/mmap
+              name: mmap
+            - mountPath: /etc/localtime
+              name: localtime
+          securityContext:
+            privileged: true

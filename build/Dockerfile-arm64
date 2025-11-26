@@ -1,0 +1,20 @@
+FROM --platform=linux/arm64 centos:7
+WORKDIR /
+COPY ../main main
+RUN mkdir -p /etc/log-controller/template
+RUN mkdir -p /etc/log-controller/global
+RUN chmod +x main
+ENV FILEBEAT_VERSION=8.11.3
+COPY filebeat-${FILEBEAT_VERSION}-linux-arm64.tar.gz /tmp/
+RUN mkdir -p /etc/filebeat /var/lib/filebeat /var/log/filebeat && \
+    tar zxf /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64.tar.gz -C /tmp/ && \
+    cp -rf /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64/filebeat /usr/bin/ && \
+    cp -rf /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64/fields.yml /etc/filebeat/ && \
+    cp -rf /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64/kibana /etc/filebeat/ && \
+    cp -rf /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64/module /etc/filebeat/ && \
+    cp -rf /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64/modules.d /etc/filebeat/ && \
+    rm -rf /var/cache/apk/* /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64.tar.gz /tmp/filebeat-${FILEBEAT_VERSION}-linux-arm64
+
+
+
+

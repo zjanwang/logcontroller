@@ -1,0 +1,157 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: {{ .Release.Name }}
+  namespace:  {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    node-pool: ignore
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+        node-pool: ignore
+    spec:
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      serviceAccountName: {{ .Release.Name }}
+      serviceAccount: {{ .Release.Name }}
+      volumes:
+        {{- if eq .Values.runtime "containerd"}}
+        - name: sock
+          hostPath:
+            path: /var/run/containerd/containerd.sock
+        {{- else }}
+        - name: sock
+          hostPath:
+            path: /var/run/docker.sock
+        {{- end}}
+        - configMap:
+            defaultMode: 511
+            name: log-controller-tpl
+          name: template-config
+        - configMap:
+            defaultMode: 511
+            name: log-controller-config
+          name: global-config
+        - hostPath:
+            path: /
+            type: ""
+          name: root
+        - hostPath:
+            path: /var/lib/filebeat
+            type: DirectoryOrCreate
+          name: data
+        - hostPath:
+            path: /etc/localtime
+          name: localtime
+        - hostPath:
+            path: /var/log/filebeat
+          name: log
+      containers:
+        - name: log-controller
+          args:
+          - --v=5
+          command:
+          - sh
+          - -c
+          - ./config.filebeat && ./main --runtime={{ .Values.runtime }}
+          image: {{ .Values.node.image.registry }}/{{ .Values.node.image.repository }}:{{ .Values.node.image.tag }}
+          imagePullPolicy: {{ .Values.node.image.pullPolicy }}
+          env:
+          - name: HOSTNAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+          - name: PODNAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: PODNAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: LOGCONTAINERNAME
+            value: k8s_container_name
+          {{- if .Values.es.username}}
+          - name: "ELASTICSEARCH_USER"
+            value: "{{ .Values.es.username }}"
+          - name: "ELASTICSEARCH_PASSWORD"
+            value: "{{ .Values.es.password }}"
+          {{- end}}
+          {{- if eq .Values.logging_output.type "logstash"}}
+          - name: "LOGGING_OUTPUT"
+            value: "logstash"
+          - name: "LOGSTASH_HOST"
+            value: "{{ .Values.logging_output.address }}"
+          - name: "LOGSTASH_PORT"
+            value: "5044"
+          - name: LOGSTASH_BULK_MAX_SIZE
+            value: "{{ .Values.logging_output.bulkMaxSize }}"
+          - name: "LOGSTASH_LOADBALANCE"
+            value: "true"
+          - name: "LOGSTASH_WORKER"
+            value: "{{ .Values.logging_output.worker }}"
+          {{- end}}
+          {{- if eq .Values.logging_output.type "kafka"}}
+          - name: "LOGGING_OUTPUT"
+            value: "kafka"
+          - name: "KAFKA_BROKERS"
+            value: "{{ .Values.logging_output.address }}"
+          - name: KAFKA_BULK_MAX_SIZE
+            value: "{{ .Values.logging_output.bulkMaxSize }}"
+          - name: KAFKA_CHANNEL_BUFFER_SIZE
+            value: "{{ .Values.kafka.channelBufferSize }}"
+          {{- if .Values.kafka.username}}
+          - name: "KAFKA_USERNAME"
+            value: "{{ .Values.kafka.username }}"
+          - name: "KAFKA_PASSWORD"
+            value: "{{ .Values.kafka.password }}"
+          {{- end}}
+          {{- if .Values.kafka.version}}
+          - name: "KAFKA_VERSION"
+            value: "{{ .Values.kafka.version }}"
+          {{- end}}
+          {{- end}}
+          {{- if .Values.resources }}
+          resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if eq .Values.runtime "containerd"}}
+            - name: sock
+              mountPath: /var/run/containerd/containerd.sock
+              mountPropagation: Bidirectional
+            {{- else }}
+            - name: sock
+              mountPath: /var/run/docker.sock
+              mountPropagation: Bidirectional
+            {{- end}}
+            - mountPath: /config.filebeat
+              subPath: config.filebeat
+              name: global-config
+            - mountPath: /template.config
+              subPath: template.config
+              name: template-config
+            - mountPath: /host
+              mountPropagation: Bidirectional
+              readOnly: true
+              name: root
+            - mountPath: /var/lib/filebeat
+              name: data
+            - mountPath: /etc/localtime
+              name: localtime
+            - mountPath: /var/log/filebeat
+              name: log
+          securityContext:
+            privileged: true

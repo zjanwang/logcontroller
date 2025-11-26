@@ -1,0 +1,50 @@
+# Default values for heimdallr.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+node:
+  image:
+    registry: k8s-deploy
+    repository: log-controller
+    pullPolicy: IfNotPresent
+    tag: "1.0.1"
+logging_output:
+  #  type: kafka
+  type: logstash
+  address: logstash-logstash.logging
+  worker: 3
+  bulkMaxSize: 4096
+kafka:
+  username: admin
+  password: Hc@Cloud01
+  version: ""
+  channelBufferSize: 512
+es:
+  username: elastic
+  password: Hc@Cloud01
+
+runtime: "containerd"
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+podAnnotations: {}
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+

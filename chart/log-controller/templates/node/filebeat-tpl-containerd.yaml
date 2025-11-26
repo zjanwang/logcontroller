@@ -1,0 +1,73 @@
+{{- if eq .Values.runtime "containerd"}}
+apiVersion: v1
+data:
+  template.config: |
+    {{`{{range $k, $v := .configList}}
+    - type: filestream
+      processors:
+      - rename:
+          fields:
+          - from: log.file.path
+            to: source
+          - from: log.offset
+            to: offset
+      id: {{ .FilestreamID }}
+      enabled: true
+      paths:
+    {{range $key, $value := $v.HostDir}}
+    {{range $index, $file := $value}}
+          - {{ $key }}/{{ $file }}
+    {{end}}
+    {{end}}
+      {{ if ne (len .ExcludeFiles) 0 }}
+      prospector.scanner.exclude_files: [{{- range $index, $element := .ExcludeFiles -}}{{- if $index}}, {{end}}'{{$element}}'{{- end}}]
+      {{end}}
+      {{ if ne (len .Tags) 0 }}
+      tags: [{{- range $index, $element := .Tags -}}{{- if $index}}, {{end}}'{{$element}}'{{- end}}]
+      {{end}}
+      prospector.scanner.check_interval: 10s
+      {{if eq .Format "json"}}
+      json.keys_under_root: true
+      {{end}}
+      {{if eq .Format "mysql_slow_log"}}
+      exclude_lines: ['^\# Time']
+      parsers:
+      - multiline:
+          negate: true
+          match: after
+          pattern: '^\# Time|^\# User'
+      {{end}}
+      {{if eq .Format "csv"}}
+      parsers:
+      - multiline:
+          negate: true
+          match: after
+          pattern: '^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}.\d{3}'
+      {{end}}
+      fields_under_root: true
+      fields:
+          {{range $key, $value := .Fields}}
+          {{ $key }}: {{ $value }}
+          {{end}}
+      close.on_state_change.inactive: 5m
+      clean_inactive: 72h
+      ignore_older: 70h
+      close.reader.on_eof: false
+      close.on_state_change.removed: true
+      close.on_state_change.renamed: false
+      {{ if ne (len .Parsers) 0 }}
+      parsers:
+      - multiline:
+      {{range $key, $value := .Parsers}}
+          {{ $key }}: {{ $value }}
+      {{end}}
+      {{end}}
+      {{range $key, $value := .RootConfigurations}}
+      {{ $key }}: {{ $value }}
+      {{end}}
+    {{end}}`}}
+kind: ConfigMap
+metadata:
+  name: log-controller-tpl
+  namespace: {{ .Release.Namespace }}
+{{- end }}

@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  template.config: |
+    {{`{
+        "fields": [
+        {{- $lastIndex := len .Fields | reduce }}
+        {{- range $index, $field := .Fields }}
+        {
+            {{- range $key, $value := $field }}
+            {{ $key }}: {{ $value }}
+            {{- end }}
+        }{{- if ne $index $lastIndex }},{{ end }}
+        {{- end }}
+        ],
+    }`}}
+kind: ConfigMap
+metadata:
+  name: log-controller-tpl
+  namespace: {{ .Release.Namespace }}

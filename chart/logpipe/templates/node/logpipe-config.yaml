@@ -1,0 +1,43 @@
+apiVersion: v1
+data:
+  global.config: |
+    {{`{
+    "log": {
+        "log_file": "/logpipe/log/logpipe_collect_UMS.log",
+        "log_level": "ERROR"
+    },
+    "buffer_size": "512kb",
+    "input_offset": "1kb",
+    "inputs": [
+        {
+            "plugin": "/root/logpipe/so/logpipe-input-file.so",
+            "fields": [
+    ],
+            "max_usleep_interval": "1s",
+            "min_usleep_interval": "100ms",
+            "scan_interval": "2s",
+            "sn_mmap_count": 5000,
+            "mmap_file_name": "/logpipe/mmap/logpipe_collect_UMS.info",
+            "clean_inactive" : "72h",
+            "line_mode": "1"
+        }
+    ],
+    "filters":[
+        {
+            "plugin":"/root/logpipe/so/logpipe-filter-HZUMS-pack.so",
+            "hostname": "linux86",
+            "ip": "66.88.1.66"
+        }
+    ],
+    "outputs":[
+        {
+            "plugin" :"/root/logpipe/so/logpipe-output-kafka.so",
+            "bootstrap_servers": ""
+            "topic": "test"
+        }
+    ]
+    }`}}
+kind: ConfigMap
+metadata:
+  name: log-controller-config
+  namespace: {{ .Release.Namespace }}
